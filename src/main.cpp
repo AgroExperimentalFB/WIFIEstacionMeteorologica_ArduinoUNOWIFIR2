@@ -12,6 +12,7 @@
 #include <WiFiNINA.h>
 #include <avr/sleep.h>
 #include "user-variables.h"
+#include "DHT.h"
 
 
 //________________________________INSTANCIAS____________________________________
@@ -21,6 +22,7 @@ IoTicosSplitter splitter;
 Weather sensor;                                               //Instancia Si7021
 MPL3115A2 myPressure;                                      //Instancia MPL3115A2
 DynamicJsonDocument mqtt_data_doc(1024);
+#define DHTTYPE DHT22  
 
 
 //________________________________FUNCIONES______________________________________
@@ -96,11 +98,14 @@ const byte WSPEED = 3;
 const byte RAIN = 2;
 const byte STAT1 = 7;
 const byte STAT2 = 8;
+const int DHTPin = 5; 
 //PINES ANALOGICOS I/O
 const byte REFERENCE_3V3 = A3;
 const byte LIGHT = A1;
 const byte BATT = A2;
 const byte WDIR = A0;
+
+DHT dht(DHTPin, DHTTYPE);
 
 
 //_____________________FUNCIONES DE INTERRUPCION________________________________
@@ -183,6 +188,7 @@ void setup()
     myPressure.setModeBarometer(); // Measure pressure in Pascals from 20 to 110 kPa
     myPressure.setOversampleRate(7);                             //Sobremuestreo
     myPressure.enableEventFlags(); //Habilite las tres banderas de eventos de presión y temperatura
+    dht.begin();
   }
 
   get_mqtt_credentials();
@@ -237,9 +243,15 @@ void check_mqtt_connection()                      //1° COMPRUEBA CONEXIÓN MQTT
 //___________________________LEER_SENSORES______________________________________
 void process_sensors()
 {
-  config.hum= sensor.getRH();
-  float tempF = sensor.getTempF();
-  config.temp = (tempF-32)*(0.5);
+  //config.hum= sensor.getRH();
+  //float tempF = sensor.getTempF();
+  //config.temp = (tempF-32)*(0.5);
+  config.hum= dht.readHumidity();
+  config.temp= dht.readTemperature();
+  if (isnan(config.hum) || isnan(config.temp)) {
+      Serial.println("Failed to read from DHT sensor!");
+      return;
+   }
   float currentSpeed = get_wind_speed();
   config.windspeed = currentSpeed*1.609;
   config.winddir = get_wind_direction();
